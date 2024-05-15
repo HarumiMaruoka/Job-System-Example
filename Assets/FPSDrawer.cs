@@ -20,7 +20,5 @@ public class FPSDrawer : MonoBehaviour
             _intervalTimer = 0f;
             _view.text = $"fps: {(1f / Time.deltaTime).ToString(".0")}";
         }
-
     }
-
 }

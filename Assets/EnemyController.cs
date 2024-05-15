@@ -16,7 +16,7 @@ public class EnemyController : MonoBehaviour
     {
         _player = FindObjectOfType<Player>();
 
-        // Get all Enemy transforms including this one
+        // Get all Enemy transforms
         GetComponentsInChildren<Transform>(false, _enemyList);
         _enemyList.Remove(transform);
         _enemyList.Remove(_player.transform);
@@ -41,6 +41,7 @@ public class EnemyController : MonoBehaviour
         _transformArray.Dispose();
     }
 
+    [BurstCompatible]
     struct MoveToPlayerJob : IJobParallelForTransform
     {
         [ReadOnly] public Vector3 playerPosition;

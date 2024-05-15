@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -9,42 +8,93 @@ using UnityEngine.Jobs;
 
 public class Sample : MonoBehaviour
 {
-    private List<Transform> _targetsList;
-    private Transform[] _targetsArray;
+    public static Sample Instance { get; private set; }
+
+    private List<ICircle> _targetsList = new List<ICircle>();
+
     private NativeArray<float> _radius;
     private NativeArray<float> _mass;
     private NativeArray<Vector3> _positions;
     private NativeArray<Vector3> _newPositions;
     private TransformAccessArray _transformArray;
 
-    private void Start()
+    private void Awake()
     {
-        _targetsList = new List<Transform>();
-        GetComponentsInChildren<Transform>(false, _targetsList);
-        _targetsList.Remove(transform);
-        _targetsArray = _targetsList.ToArray();
+        Instance = this;
+    }
+
+    private void OnDestroy()
+    {
+        Instance = null;
+    }
+
+    public void Add(ICircle circle)
+    {
+        _targetsList.Add(circle);
+
+        _positions.Dispose();
+        _newPositions.Dispose();
+        _radius.Dispose();
+        _mass.Dispose();
+
+        int length = _targetsList.Count;
+
+        // Allocate Arrays
+        _positions = new NativeArray<Vector3>(length, Allocator.Persistent);
+        _newPositions = new NativeArray<Vector3>(length, Allocator.Persistent);
+        _radius = new NativeArray<float>(length, Allocator.Persistent);
+        _mass = new NativeArray<float>(length, Allocator.Persistent);
+
+        for (int i = 0; i < length; i++)
+        {
+            _positions[i] = _targetsList[i].CircleData.Transform.position;
+            _newPositions[i] = _positions[i];
+            _radius[i] = _targetsList[i].CircleData.Radius;
+            _mass[i] = _targetsList[i].CircleData.Mass;
+        }
+
+        // Setup TransformAccessArray
+        _transformArray = new TransformAccessArray(length);
+        for (int i = 0; i < length; i++) _transformArray.Add(_targetsList[i].CircleData.Transform);
+    }
+
+    public void Remove(ICircle circle)
+    {
+        _targetsList.Remove(circle);
+
+        _positions.Dispose();
+        _newPositions.Dispose();
+        _radius.Dispose();
+        _mass.Dispose();
+
+        int length = _targetsList.Count;
+
+        // Allocate Arrays
+        _positions = new NativeArray<Vector3>(length, Allocator.Persistent);
+        _newPositions = new NativeArray<Vector3>(length, Allocator.Persistent);
+        _radius = new NativeArray<float>(length, Allocator.Persistent);
+        _mass = new NativeArray<float>(length, Allocator.Persistent);
+
+        for (int i = 0; i < length; i++)
+        {
+            _positions[i] = _targetsList[i].CircleData.Transform.position;
+            _newPositions[i] = _positions[i];
+            _radius[i] = _targetsList[i].CircleData.Radius;
+            _mass[i] = _targetsList[i].CircleData.Mass;
+        }
+
+        // Setup TransformAccessArray
+        _transformArray = new TransformAccessArray(length);
+        for (int i = 0; i < length; i++) _transformArray.Add(_targetsList[i].CircleData.Transform);
     }
 
     void Update()
     {
-        int length = _targetsArray.Length;
-
-        // Allocate Arrays
-        _positions = new NativeArray<Vector3>(length, Allocator.TempJob);
-        _newPositions = new NativeArray<Vector3>(length, Allocator.TempJob);
-        _radius = new NativeArray<float>(length, Allocator.TempJob);
-        _mass = new NativeArray<float>(length, Allocator.TempJob);
-
-        for (int i = 0; i < length; i++)
+        for (int i = 0; i < _targetsList.Count; i++)
         {
-            _positions[i] = _targetsList[i].position;
+            _positions[i] = _targetsList[i].CircleData.Transform.position;
             _newPositions[i] = _positions[i];
-            _radius[i] = 0.5f;
-            _mass[i] = 1f;
         }
-
-        // Setup TransformAccessArray
-        _transformArray = new TransformAccessArray(_targetsArray);
 
         // Setup and Schedule Jobs
         UpdatePositionJob updatePositionJob = new UpdatePositionJob()
@@ -60,17 +110,10 @@ public class Sample : MonoBehaviour
             newPositions = _newPositions
         };
 
-        JobHandle updateHandle = updatePositionJob.Schedule(length, 20);
+        JobHandle updateHandle = updatePositionJob.Schedule(_targetsList.Count, 64);
         JobHandle applyHandle = applyPositionJob.Schedule(_transformArray, updateHandle);
 
         applyHandle.Complete();
-
-        // Dispose Arrays
-        _positions.Dispose();
-        _newPositions.Dispose();
-        _radius.Dispose();
-        _mass.Dispose();
-        _transformArray.Dispose();
     }
 
     [BurstCompile]
