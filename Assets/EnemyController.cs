@@ -11,7 +11,6 @@ public class EnemyController : MonoBehaviour
     private List<Transform> _enemyList = new List<Transform>();
     private Player _player;
     private TransformAccessArray _transformArray;
-    private NativeArray<Vector3> _playerPositionArray;
 
     private void Start()
     {
@@ -26,22 +25,15 @@ public class EnemyController : MonoBehaviour
 
     private void Update()
     {
-        // Allocate player position array
-        _playerPositionArray = new NativeArray<Vector3>(1, Allocator.TempJob);
-        _playerPositionArray[0] = _player.transform.position;
-
         // Schedule job
         MoveToPlayerJob moveToPlayerJob = new MoveToPlayerJob
         {
-            playerPosition = _playerPositionArray[0],
+            playerPosition = _player.transform.position,
             deltaTime = Time.deltaTime
         };
 
         JobHandle moveHandle = moveToPlayerJob.Schedule(_transformArray);
         moveHandle.Complete();
-
-        // Dispose arrays
-        _playerPositionArray.Dispose();
     }
 
     private void OnDestroy()
