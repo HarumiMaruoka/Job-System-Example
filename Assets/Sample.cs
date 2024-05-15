@@ -60,7 +60,7 @@ public class Sample : MonoBehaviour
             newPositions = _newPositions
         };
 
-        JobHandle updateHandle = updatePositionJob.Schedule(length, 1);
+        JobHandle updateHandle = updatePositionJob.Schedule(length, 20);
         JobHandle applyHandle = applyPositionJob.Schedule(_transformArray, updateHandle);
 
         applyHandle.Complete();
