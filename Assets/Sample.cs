@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using TMPro;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Jobs;
 
@@ -15,17 +17,14 @@ public class Sample : MonoBehaviour
     private NativeArray<CircleData> _data;
     private TransformAccessArray _transformArray;
 
-    private SpatialGrid _spatialGrid;
     private void Awake()
     {
         Instance = this;
-        _spatialGrid = new SpatialGrid(1.0f, 1024);
     }
 
     private void OnDestroy()
     {
         Instance = null;
-        _spatialGrid.Dispose();
     }
 
     public void Add(ICircle circle)
@@ -81,13 +80,6 @@ public class Sample : MonoBehaviour
             _data[i] = circle;
         }
 
-        // グリッドをクリアして再構築
-        _spatialGrid.Clear();
-        for (int i = 0; i < _data.Length; i++)
-        {
-            _spatialGrid.AddObject(_data[i].Position, i);
-        }
-
         // Setup and Schedule Jobs
         var copyData = new NativeArray<CircleData>(_data.Length, Allocator.TempJob);
         for (int i = 0; i < copyData.Length; i++) copyData[i] = _data[i];
@@ -95,7 +87,6 @@ public class Sample : MonoBehaviour
         {
             frontData = _data,
             backData = copyData,
-            spatialGrid = _spatialGrid,
         };
 
         ApplyPositionJob applyPositionJob = new ApplyPositionJob()
@@ -116,56 +107,33 @@ public class Sample : MonoBehaviour
     {
         public NativeArray<CircleData> frontData;
         [ReadOnly] public NativeArray<CircleData> backData;
-        [ReadOnly] public SpatialGrid spatialGrid;
 
         public void Execute(int index)
         {
-            Vector3 myPosition = frontData[index].Position;
+            float2 myPosition = frontData[index].Position;
             float myRadius = frontData[index].Radius;
             float myMass = frontData[index].Radius;
 
-            var nearbyIndices = spatialGrid.GetNearbyObjectIndices(myPosition, Allocator.TempJob);
-            foreach (var i in nearbyIndices)
+            for (int i = 0; i < frontData.Length; i++)
             {
                 if (index == i) continue;
 
-                Vector3 neighborPosition = backData[i].Position;
+                float2 neighborPosition = backData[i].Position;
                 float neighborRadius = backData[i].Radius;
                 float neighborMass = backData[i].Mass;
-                float sqrDistance = Vector3.SqrMagnitude(myPosition - neighborPosition);
+                float sqrDistance = (myPosition.x - neighborPosition.x) * (myPosition.x - neighborPosition.x) + (myPosition.y - neighborPosition.y) * (myPosition.y - neighborPosition.y); // Vector2.SqrMagnitude(myPosition - neighborPosition);
 
                 if (sqrDistance < (myRadius + neighborRadius) * (myRadius + neighborRadius))
                 {
                     // Collision response
-                    float overlap = (myRadius + neighborRadius) - Mathf.Sqrt(sqrDistance);
-                    Vector3 direction = (neighborPosition - myPosition).normalized;
+                    float overlap = (myRadius + neighborRadius) - math.sqrt(sqrDistance);
+                    var diff = neighborPosition - myPosition;
+                    Vector2 direction = math.normalize(new float2(diff.x, diff.y));
                     var circle = frontData[index];
                     circle.NewPosition -= direction * (overlap * (neighborMass / (myMass + neighborMass)));
                     frontData[index] = circle;
                 }
             }
-
-            nearbyIndices.Dispose();
-
-            //for (int i = 0; i < frontData.Length; i++)
-            //{
-            //    if (index == i) continue;
-
-            //    Vector3 neighborPosition = backData[i].Position;
-            //    float neighborRadius = backData[i].Radius;
-            //    float neighborMass = backData[i].Mass;
-            //    float sqrDistance = Vector3.SqrMagnitude(myPosition - neighborPosition);
-
-            //    if (sqrDistance < (myRadius + neighborRadius) * (myRadius + neighborRadius))
-            //    {
-            //        // Collision response
-            //        float overlap = (myRadius + neighborRadius) - Mathf.Sqrt(sqrDistance);
-            //        Vector3 direction = (neighborPosition - myPosition).normalized;
-            //        var circle = frontData[index];
-            //        circle.NewPosition -= direction * (overlap * (neighborMass / (myMass + neighborMass)));
-            //        frontData[index] = circle;
-            //    }
-            //}
         }
     }
 

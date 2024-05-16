@@ -10,8 +10,8 @@ public interface ICircle
 [Serializable]
 public struct CircleData
 {
-    public Vector3 Position;
-    public Vector3 NewPosition;
+    public Vector2 Position;
+    public Vector2 NewPosition;
     public float Radius;
     public float Mass;
 }
