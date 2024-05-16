@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.Jobs;
 
 public class Enemy : MonoBehaviour, ICircle
 {
@@ -7,7 +8,6 @@ public class Enemy : MonoBehaviour, ICircle
 
     private void Start()
     {
-        _circleData.Transform = transform;
         Sample.Instance.Add(this);
     }
 

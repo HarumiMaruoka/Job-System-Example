@@ -8,7 +8,6 @@ public class Player : MonoBehaviour, ICircle
 
     private void Start()
     {
-        _circleData.Transform = transform;
         Sample.Instance.Add(this);
     }
 
